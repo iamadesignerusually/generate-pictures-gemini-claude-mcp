@@ -88,3 +88,15 @@ In Claude Desktop, you can now ask:
 > "Edit this image (path: ./output/generated-2025-01-01.png) — make the sky purple"
 
 Generated and edited images are saved in the `output/` folder.
+
+## Disclaimer / Rechtliches
+
+Dieses Projekt nutzt die **Google Gemini API** zur Bildgenerierung und -bearbeitung. Dieses Projekt ist **nicht** von Google genehmigt, gesponsert oder anderweitig mit Google verbunden.
+
+- Die generierten Bilder unterliegen den [Google Gemini API Nutzungsbedingungen](https://ai.google.dev/gemini-api/terms) und den [Google AI Generative API Additional Terms of Service](https://ai.google.dev/gemini-api/terms).
+- Dieses Projekt beansprucht **keinerlei Rechte** an der Gemini API, den generierten Bildern oder an Google-Marken.
+- Du bist selbst verantwortlich für die Einhaltung der Google-Nutzungsbedingungen.
+- Bitte prüfe vor **kommerzieller Nutzung** der generierten Bilder die aktuellen Google-Richtlinien.
+- Der Gemini API Free Tier ist kostenlos, unterliegt aber Nutzungslimits (siehe [Google AI Studio Pricing](https://ai.google.dev/pricing)).
+
+This project uses the Google Gemini API. It is **not** endorsed, sponsored, or affiliated with Google. Generated images are subject to Google's [Gemini API Terms of Service](https://ai.google.dev/gemini-api/terms). You are solely responsible for complying with Google's terms. Check Google's policies before any commercial use of generated images.
