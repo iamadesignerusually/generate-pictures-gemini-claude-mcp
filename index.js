@@ -7,12 +7,17 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const OUTPUT_DIR = path.join(__dirname, "output");
+import os from "node:os";
 
-if (!fs.existsSync(OUTPUT_DIR)) {
-  fs.mkdirSync(OUTPUT_DIR, { recursive: true });
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const BASE_DIR = path.join(os.homedir(), "claude-pictures");
+
+if (!fs.existsSync(BASE_DIR)) {
+  fs.mkdirSync(BASE_DIR, { recursive: true });
 }
+
+// Mutable current project directory — set by create_project, defaults to BASE_DIR
+let currentProjectDir = BASE_DIR;
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
@@ -141,9 +146,13 @@ function generateFilename(prefix) {
   return `${prefix}-${ts}.png`;
 }
 
-async function saveImage(base64Data, prefix) {
+async function saveImage(base64Data, prefix, outputDir) {
+  const dir = outputDir || currentProjectDir;
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
   const filename = generateFilename(prefix);
-  const filepath = path.join(OUTPUT_DIR, filename);
+  const filepath = path.join(dir, filename);
   fs.writeFileSync(filepath, Buffer.from(base64Data, "base64"));
   return filepath;
 }
@@ -199,6 +208,46 @@ server.tool(
   }
 );
 
+// ---------------------------------------------------------------------------
+// Tool: create_project — creates a named project folder under ~/claude-pictures/
+// ---------------------------------------------------------------------------
+server.tool(
+  "create_project",
+  "Create a new project folder under ~/claude-pictures/ for organizing generated images. All subsequent generate_image and edit_image calls will save into this folder. Call this at the start of a session with a short, descriptive title.",
+  {
+    title: z
+      .string()
+      .describe(
+        'Short project title used as folder name, e.g. "cozy-cafe-illustrations". Will be sanitized for the file system.'
+      ),
+  },
+  async ({ title }) => {
+    // Sanitize: lowercase, replace spaces/special chars with hyphens
+    const safeName = title
+      .toLowerCase()
+      .replace(/[^a-z0-9äöüß\-_ ]/g, "")
+      .replace(/[\s_]+/g, "-")
+      .replace(/-+/g, "-")
+      .replace(/^-|-$/g, "");
+
+    const ts = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+    const folderName = `${ts}-${safeName}`;
+    const projectPath = path.join(BASE_DIR, folderName);
+
+    fs.mkdirSync(projectPath, { recursive: true });
+    currentProjectDir = projectPath;
+
+    return {
+      content: [
+        {
+          type: "text",
+          text: `Project folder created: ${projectPath}\nAll images will be saved here.`,
+        },
+      ],
+    };
+  }
+);
+
 server.tool(
   "generate_image",
   "Generate an image from a text prompt using Google Gemini. Returns the generated image saved locally.",
@@ -210,8 +259,14 @@ server.tool(
       .describe(
         `Style guide appended to the prompt. Defaults to: "${DEFAULT_STYLE}"`
       ),
+    output_dir: z
+      .string()
+      .optional()
+      .describe(
+        "Optional output directory. If omitted, saves to the current project folder."
+      ),
   },
-  async ({ prompt, style }) => {
+  async ({ prompt, style, output_dir }) => {
     const missing = assertApiKey();
     if (missing) return missing;
 
@@ -237,7 +292,8 @@ server.tool(
         if (part.inlineData) {
           const filepath = await saveImage(
             part.inlineData.data,
-            "generated"
+            "generated",
+            output_dir
           );
           const imageData = part.inlineData.data;
           const mimeType = part.inlineData.mimeType || "image/png";
@@ -296,8 +352,14 @@ server.tool(
       .describe(
         'Editing instruction, e.g. "replace the countertop with marble"'
       ),
+    output_dir: z
+      .string()
+      .optional()
+      .describe(
+        "Optional output directory. If omitted, saves to the current project folder."
+      ),
   },
-  async ({ image_path, instruction }) => {
+  async ({ image_path, instruction, output_dir }) => {
     const missing = assertApiKey();
     if (missing) return missing;
 
@@ -358,7 +420,7 @@ server.tool(
 
       for (const part of parts) {
         if (part.inlineData) {
-          const filepath = await saveImage(part.inlineData.data, "edited");
+          const filepath = await saveImage(part.inlineData.data, "edited", output_dir);
           const outMime = part.inlineData.mimeType || "image/png";
 
           return {
