@@ -2,7 +2,7 @@
   "mcpServers": {
     "image-mcp": {
       "command": "node",
-      "args": ["/home/user/generate-pictures-gemini-claude-mcp/index.js"],
+      "args": ["./index.js"],
       "env": {
         "GEMINI_API_KEY": "AIzaSyBCtGoxa7Zv_oVgNL2WGfsLdP47-5i9WLU"
       }
