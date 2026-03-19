@@ -15,12 +15,45 @@ if (!fs.existsSync(OUTPUT_DIR)) {
 }
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-if (!GEMINI_API_KEY) {
-  console.error("GEMINI_API_KEY is not set in .env");
-  process.exit(1);
+
+const ENV_PATH = path.join(__dirname, ".env");
+
+const SETUP_GUIDE = [
+  "## Gemini API Key fehlt!",
+  "",
+  "Um Bilder zu generieren, brauchst du einen kostenlosen Google Gemini API Key.",
+  "Das dauert nur 1 Minute:",
+  "",
+  "1. Öffne https://aistudio.google.com/apikey",
+  "2. Melde dich mit deinem Google-Konto an",
+  '3. Klicke auf "Create API Key"',
+  "4. Kopiere den Key",
+  `5. Erstelle eine Datei \`${ENV_PATH}\` mit folgendem Inhalt:`,
+  "",
+  "```",
+  "GEMINI_API_KEY=dein-key-hier-einfügen",
+  "```",
+  "",
+  "Alternativ kannst du den Key auch direkt in der Claude Desktop Config setzen",
+  "(unter `env.GEMINI_API_KEY` im MCP-Server-Eintrag).",
+  "",
+  "Danach Claude Desktop neu starten — fertig! Der Free Tier ist kostenlos",
+  "und reicht für normale Nutzung vollkommen aus.",
+].join("\n");
+
+function assertApiKey() {
+  if (!GEMINI_API_KEY) {
+    return {
+      content: [{ type: "text", text: SETUP_GUIDE }],
+      isError: true,
+    };
+  }
+  return null;
 }
 
-const genai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
+const genai = GEMINI_API_KEY
+  ? new GoogleGenAI({ apiKey: GEMINI_API_KEY })
+  : null;
 
 const DEFAULT_STYLE =
   "warm line art illustration, watercolor fill, off-white background, thin black outlines, soft pastel colors, emotional and tender";
@@ -59,6 +92,9 @@ server.tool(
       ),
   },
   async ({ prompt, style }) => {
+    const missing = assertApiKey();
+    if (missing) return missing;
+
     const fullPrompt = `${prompt}. Style: ${style || DEFAULT_STYLE}`;
 
     try {
@@ -142,6 +178,9 @@ server.tool(
       ),
   },
   async ({ image_path, instruction }) => {
+    const missing = assertApiKey();
+    if (missing) return missing;
+
     try {
       let imageData;
       let mimeType = "image/png";
