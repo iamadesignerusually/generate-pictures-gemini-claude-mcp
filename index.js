@@ -20,73 +20,107 @@ const ENV_PATH = path.join(__dirname, ".env");
 
 const SERVER_DIR = __dirname;
 
-const SETUP_GUIDE = [
-  "Hey! Du hast noch keinen Gemini API Key eingerichtet — ohne den kann ich leider keine Bilder generieren oder bearbeiten.",
+// ---------------------------------------------------------------------------
+// Onboarding guide shown as an MCP prompt when the server is first connected.
+// English, step-by-step, with all links.
+// ---------------------------------------------------------------------------
+const ONBOARDING_GUIDE = [
+  "# Welcome to image-mcp!",
   "",
-  "Aber keine Sorge, das ist in ein paar Minuten erledigt und komplett kostenlos. Hier Schritt für Schritt:",
+  "This MCP server lets you **generate and edit images** using Google Gemini — right from Claude.",
+  "",
+  "Before you can use it, you need a **(free) Gemini API key**. Here's how to set it up:",
   "",
   "---",
   "",
-  "**Schritt 1 — Repo klonen und installieren**",
+  "## Step 1 — Get a free Gemini API key",
   "",
-  "Falls du das noch nicht gemacht hast:",
-  "```bash",
-  "git clone https://github.com/iamadesignerusually/generate-pictures-gemini-claude-mcp.git",
-  "cd generate-pictures-gemini-claude-mcp",
-  "npm install",
+  "1. Go to **https://aistudio.google.com/apikey**",
+  "2. Sign in with your Google account",
+  '3. Click **"Create API Key"**',
+  "4. Copy the key",
+  "",
+  "This is Google's free tier — **you won't be charged**. It includes generous daily limits for image generation.",
+  "",
+  "## Step 2 — Add the key to your environment",
+  "",
+  "Open (or create) the `.env` file in the server directory:",
+  "",
+  "```",
+  `${ENV_PATH}`,
   "```",
   "",
-  "**Schritt 2 — Kostenlosen Gemini API Key holen**",
-  "",
-  "1. Geh auf https://aistudio.google.com/apikey",
-  "2. Log dich mit deinem Google-Konto ein",
-  '3. Klick auf "Create API Key" — Key kopieren',
-  "",
-  "Das ist Googles Free Tier, du zahlst nichts.",
-  "",
-  "**Schritt 3 — Key eintragen**",
-  "",
-  `Erstelle die Datei \`${ENV_PATH}\`:`,
+  "Add this line:",
   "```",
-  "GEMINI_API_KEY=dein-key-hier-einfügen",
+  "GEMINI_API_KEY=paste-your-key-here",
   "```",
   "",
-  "**Schritt 4 — Server in Claude Desktop registrieren**",
+  "**Alternatively**, you can set the key directly in your Claude Desktop config (see Step 3).",
   "",
-  "Öffne deine Claude Desktop Config:",
-  "- **Mac:** `~/Library/Application Support/Claude/claude_desktop_config.json`",
-  "- **Windows:** `%APPDATA%\\Claude\\claude_desktop_config.json`",
+  "## Step 3 — Register the server in Claude Desktop",
   "",
-  "Füg das hier ein (oder ergänze den `mcpServers`-Block):",
+  "Open your Claude Desktop config file:",
+  "",
+  "- **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`",
+  "- **Windows**: `%APPDATA%\\Claude\\claude_desktop_config.json`",
+  "",
+  "Add (or merge) the following into your config:",
+  "",
   "```json",
   "{",
   '  "mcpServers": {',
   '    "image-mcp": {',
   '      "command": "node",',
-  `      "args": ["${SERVER_DIR}/index.js"]`,
+  `      "args": ["${SERVER_DIR}/index.js"],`,
+  '      "env": {',
+  '        "GEMINI_API_KEY": "paste-your-key-here"',
+  "      }",
   "    }",
   "  }",
   "}",
   "```",
   "",
-  "**Schritt 5 — Claude Desktop neu starten**",
+  "You can put the key in **either** the `.env` file **or** the config above — both work. Pick whichever you prefer.",
   "",
-  "Einmal neu starten, dann probier's nochmal! Du kannst mich dann einfach bitten, Bilder zu erstellen oder zu bearbeiten.",
+  "## Step 4 — Restart Claude Desktop",
+  "",
+  "Quit and reopen Claude Desktop so it picks up the new config.",
+  "",
+  "## Step 5 — Try it out!",
+  "",
+  'Ask Claude something like: *"Generate an image of a cozy coffee shop on a rainy day"* or *"Edit this photo — replace the countertop with marble"*.',
   "",
   "---",
   "",
-  "**Hinweis zu Rechten & Nutzungsbedingungen:**",
-  "Dieses Tool nutzt die Google Gemini API zur Bildgenerierung. Die erzeugten Bilder unterliegen den",
-  "Nutzungsbedingungen von Google (https://ai.google.dev/gemini-api/terms).",
-  "Dieses Projekt hat keinerlei Rechte an der Gemini API oder den generierten Inhalten.",
-  "Du bist selbst dafür verantwortlich, die Google-Nutzungsbedingungen einzuhalten.",
-  "Bitte prüfe vor kommerzieller Nutzung der Bilder die aktuellen Google-Richtlinien.",
+  "**Legal note:** This project uses the Google Gemini API. Generated images are subject to",
+  "Google's Terms of Service (https://ai.google.dev/gemini-api/terms).",
+  "This project is not affiliated with Google and claims no rights to the API or generated content.",
+].join("\n");
+
+// ---------------------------------------------------------------------------
+// Shorter message returned when a tool is called without an API key.
+// Points the user back to the setup steps.
+// ---------------------------------------------------------------------------
+const MISSING_KEY_MESSAGE = [
+  "**Gemini API key is not configured.** I can't generate or edit images without it.",
+  "",
+  "Don't worry — it's free and only takes a minute to set up:",
+  "",
+  "1. Go to **https://aistudio.google.com/apikey** and create a free API key",
+  "2. Add it to your environment — pick one:",
+  `   - **Option A:** Create \`${ENV_PATH}\` with the line: \`GEMINI_API_KEY=your-key\``,
+  '   - **Option B:** Add it to your Claude Desktop config under `"env": { "GEMINI_API_KEY": "your-key" }` in the `"image-mcp"` server entry',
+  "3. **Restart Claude Desktop**",
+  "",
+  "Then just ask me again — I'll be ready to go!",
+  "",
+  "For the full setup guide, use the **`setup_guide`** prompt in this server.",
 ].join("\n");
 
 function assertApiKey() {
   if (!GEMINI_API_KEY) {
     return {
-      content: [{ type: "text", text: SETUP_GUIDE }],
+      content: [{ type: "text", text: MISSING_KEY_MESSAGE }],
       isError: true,
     };
   }
@@ -120,6 +154,50 @@ const server = new McpServer({
   name: "image-mcp",
   version: "1.0.0",
 });
+
+// ---------------------------------------------------------------------------
+// MCP Prompt: shown when the user selects "setup_guide" in Claude Desktop
+// ---------------------------------------------------------------------------
+server.prompt(
+  "setup_guide",
+  "Step-by-step setup instructions for the image-mcp server (API key, config, etc.)",
+  () => ({
+    messages: [
+      {
+        role: "user",
+        content: {
+          type: "text",
+          text: ONBOARDING_GUIDE,
+        },
+      },
+    ],
+  })
+);
+
+// ---------------------------------------------------------------------------
+// Tool: setup_check — lets users quickly verify if everything is configured
+// ---------------------------------------------------------------------------
+server.tool(
+  "setup_check",
+  "Check if the image-mcp server is properly configured and ready to use. Run this first if you're not sure whether setup is complete.",
+  {},
+  async () => {
+    if (GEMINI_API_KEY) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: "All good! Your Gemini API key is configured and image-mcp is ready to use.\n\nYou can now use **generate_image** to create images or **edit_image** to modify existing ones.",
+          },
+        ],
+      };
+    }
+    return {
+      content: [{ type: "text", text: MISSING_KEY_MESSAGE }],
+      isError: true,
+    };
+  }
+);
 
 server.tool(
   "generate_image",
